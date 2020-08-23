@@ -10,7 +10,7 @@ function getTable(filters) {
     let params = [];
     if (myFilters.id) {
         params.push(myFilters.id);
-        where.push(`id = {$${params.length}}::integer`);
+        where.push(`id = $${params.length}::integer`);
     }
     if (myFilters.maxPrice) {
         params.push(myFilters.maxPrice);
@@ -28,7 +28,6 @@ function getTable(filters) {
         params.push(myFilters.pageSize);
         query += ` LIMIT $${params.length}::integer`
     }
-    console.log(query, params);
     return pool.query(query,params)
 };
 
@@ -48,7 +47,6 @@ cart.get("/", (req,res)=>{
 cart.get("/:id", (req,res)=>{
     getTable({id: req.params.id}).then(result=>{
         let data = result.rows[0];
-        console.log(data)
         if (data !== undefined) {
             res.status(200);
             res.json(data);
@@ -67,10 +65,15 @@ cart.post("/", (req,res)=>{
             req.body.price,
             req.body.quantity
         ];
+        let item = {
+            product: values[0],
+            price: values[1],
+            quantity: values[2]
+        }
         pool.query("INSERT INTO shopping_cart (product, price, quantity) VALUES ($1::text, $2::numeric, $3::numeric)", values)
         .then(()=>{
             res.status(201);
-            res.json(values);
+            res.json(item);
         }
         ).catch(error=>{
             console.log(error);
@@ -86,6 +89,27 @@ cart.delete("/:id", (req,res)=>{
             res.sendStatus(500);
         });
 });
-cart.put("/:id", (req,res)=>{});
+cart.put("/:id", (req,res)=>{
+    if (req.body && req.body.product && req.body.price && req.body.quantity) {
+        let values = [
+            req.params.id,
+            req.body.product,
+            req.body.price,
+            req.body.quantity
+        ]
+        let item = {
+            product: values[1],
+            price: values[2],
+            quantity: values[3]
+        }
+        pool.query("UPDATE shopping_cart SET product=$2::text, price=$3::numeric, quantity=$4::numeric WHERE id=$1::numeric ORDER BY id ASC", values).then(result=>{
+            res.status(200);
+            res.json(item);
+        }).catch(error=>{
+            console.log(error);
+            res.sendStatus(500);
+        });
+    }
+});
 
 module.exports = cart;
